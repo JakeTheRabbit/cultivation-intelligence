@@ -10,7 +10,36 @@
 
 ---
 
-## Overview
+## What This Actually Does (Plain English)
+
+Imagine you have a grow room full of sensors — temperature, humidity, CO2, nutrient levels, moisture in the substrate, light intensity. Right now, all that data probably lives in Home Assistant, maybe some spreadsheets, and mostly in your grower's head. You make decisions reactively: something looks off, you go fix it.
+
+This system changes that in three ways:
+
+**1. It remembers everything.**
+Every sensor reading, every irrigation event, every time you adjusted EC or pH — all of it gets stored in a time-series database. Not just the last 24 hours. Every batch, going back as far as you have data. Over time you build a detailed history of exactly what happened in each grow.
+
+**2. It spots problems before they become problems.**
+The system watches your sensor feeds continuously and compares what's happening now against what's normal for this stage of the grow. If VPD has been creeping out of range for two hours, or EC is drifting upward in a pattern that historically preceded a yield drop, it flags it — before you'd notice on a walkthrough.
+
+**3. It tells you what to do about it (and learns from what you actually do).**
+Instead of just alerting "VPD is high", it says: *"VPD has been 0.3 kPa above target for 3 hours in mid-flower. Based on current temp (26°C) and humidity (52%), increasing humidity to 62% should bring VPD back to 1.1 kPa. Previous batches where this correction was made within 4 hours showed no yield impact."* You see the recommendation, you decide whether to act on it. If you accept it, it tells Home Assistant to make the adjustment. If you reject it, it learns from that too.
+
+### The key philosophy: the system advises, you decide.
+
+The system **never** automatically changes anything in your facility without a human saying yes first. This isn't just a safety choice — it's how trust gets built. Over weeks and months of the system making good calls and you approving them, you build confidence in it. The path to more automation is earned, not assumed.
+
+### What it connects to
+
+Your existing Home Assistant setup is the source of truth. The system reads from it constantly. ESPHome sensors, Zigbee devices, your AquaPro dosing controller (AQU1AD04A42) — all of it flows in automatically. No new hardware required.
+
+### What the ML actually does
+
+With enough completed batches (you need maybe 10-15 to start), the system learns the patterns that predict a good vs bad harvest for your specific facility, your strains, your setup. It can estimate final yield and quality grade weeks before harvest, giving you time to course-correct. With more batches, those predictions get sharper.
+
+---
+
+## Technical Overview
 
 Cultivation Intelligence is the data and AI backbone for Legacy Ag Limited's indoor medicinal cannabis operation in New Zealand. The platform ingests real-time environmental and nutrient data from Home Assistant (backed by ESPHome sensors and Zigbee devices), stores it in a TimescaleDB time-series database, and runs a continuous feature engineering and machine learning pipeline to generate actionable growing recommendations for facility operators.
 
