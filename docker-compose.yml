@@ -1,0 +1,138 @@
+version: "3.9"
+
+# =============================================================================
+# cultivation-intelligence — Docker Compose
+# =============================================================================
+# Services: app (FastAPI), db (TimescaleDB), redis
+# Networks: cultivation-net (bridge)
+# Volumes:  postgres-data, redis-data
+# =============================================================================
+
+networks:
+  cultivation-net:
+    driver: bridge
+    name: cultivation-net
+
+volumes:
+  postgres-data:
+    name: cultivation-postgres-data
+  redis-data:
+    name: cultivation-redis-data
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # FastAPI Application
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cultivation-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "9090:9090"   # Prometheus metrics
+    env_file:
+      - .env
+    environment:
+      # Override DATABASE_URL to use service name instead of localhost
+      DATABASE_URL: postgresql+asyncpg://cultivation:cultivation@db:5432/cultivation_db
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+      - ./models:/app/models
+      - ./alembic:/app/alembic:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+    networks:
+      - cultivation-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # TimescaleDB (PostgreSQL 15 with time-series extension)
+  # ---------------------------------------------------------------------------
+  db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: cultivation-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: cultivation
+      POSTGRES_PASSWORD: cultivation
+      POSTGRES_DB: cultivation_db
+      # Tune shared_buffers for a time-series workload
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - cultivation-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cultivation -d cultivation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c effective_cache_size=1GB
+        -c work_mem=16MB
+        -c maintenance_work_mem=128MB
+        -c max_connections=100
+        -c wal_level=replica
+        -c checkpoint_completion_target=0.9
+        -c random_page_cost=1.1
+
+  # ---------------------------------------------------------------------------
+  # Redis (append-only persistence)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: cultivation-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+        --appendonly yes
+        --appendfsync everysec
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --save 60 1000
+    volumes:
+      - redis-data:/data
+    networks:
+      - cultivation-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

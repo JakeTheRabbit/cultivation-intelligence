@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cultivation-intelligence.legacyag.co.nz/schemas/sensor_reading/v1",
+  "title": "SensorReading",
+  "description": "A single timestamped measurement from a physical or calculated sensor in the cultivation facility. Readings originate from Home Assistant (pushed via webhook or polled via REST), ESPHome devices, or manual data entry. Application-layer validation applies per-sensor-type range checks beyond the structural constraints defined here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sensor_id",
+    "batch_id",
+    "sensor_type",
+    "value",
+    "unit",
+    "timestamp",
+    "source"
+  ],
+  "properties": {
+    "sensor_id": {
+      "type": "string",
+      "description": "Stable, unique identifier for the physical or virtual sensor. Follows the slug convention used in ESPHome device names and Home Assistant entity IDs (e.g. 'temp_flower_room_1', 'ec.zone.a1'). Must remain consistent across reboots and firmware updates.",
+      "pattern": "^[a-z0-9_.-]+$",
+      "maxLength": 100,
+      "examples": [
+        "temp_flower_room_1",
+        "rh.flower.r1",
+        "ec_zone_a1",
+        "co2_veg_room"
+      ]
+    },
+    "batch_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the active cultivation batch associated with this reading. Must reference an existing batch in the batches table. A sensor may span multiple batches sequentially but each reading belongs to exactly one batch."
+    },
+    "sensor_type": {
+      "type": "string",
+      "description": "Canonical sensor type enumeration. Determines which application-layer range validation rules apply and how the value is stored in feature engineering pipelines. VPD_CALCULATED is derived from TEMPERATURE + HUMIDITY and is never directly measured.",
+      "enum": [
+        "TEMPERATURE",
+        "HUMIDITY",
+        "VPD_CALCULATED",
+        "EC",
+        "PH",
+        "VWC",
+        "CO2",
+        "PPFD",
+        "FLOW_RATE",
+        "DISSOLVED_OXYGEN",
+        "WEIGHT"
+      ]
+    },
+    "value": {
+      "type": "number",
+      "description": "Numeric sensor measurement in the unit specified by the 'unit' field. No global minimum or maximum is enforced here — application-layer validators apply per-type range checks (e.g. temperature must be within -10 to 60 °C for the quality flag to remain OK). NaN is not a valid JSON number; use null with quality_flag=SENSOR_OFFLINE instead."
+    },
+    "unit": {
+      "type": "string",
+      "description": "Engineering unit for the measurement value. Should match the canonical unit for the sensor_type. Validated loosely here to allow for future unit extensions without schema version bumps.",
+      "maxLength": 20,
+      "examples": [
+        "°C",
+        "%",
+        "kPa",
+        "mS/cm",
+        "pH",
+        "m³/m³",
+        "ppm",
+        "μmol/m²/s",
+        "L/min",
+        "mg/L",
+        "kg"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the measurement. UTC is strongly preferred (append 'Z' or '+00:00'). If a timezone-naive timestamp is submitted, the ingestion service will assume UTC and log a warning. Sub-second precision is accepted but not required."
+    },
+    "source": {
+      "type": "string",
+      "description": "Origin of this sensor reading. Determines ingestion path and provenance metadata stored alongside the reading. HA_PUSH = Home Assistant webhook push (real-time, preferred). HA_POLL = REST polling of Home Assistant API (fallback). CSV_IMPORT = batch import from exported CSV files. MANUAL_ENTRY = operator-entered value via dashboard.",
+      "enum": [
+        "HA_PUSH",
+        "HA_POLL",
+        "CSV_IMPORT",
+        "MANUAL_ENTRY"
+      ]
+    },
+    "raw_entity_id": {
+      "type": ["string", "null"],
+      "description": "Home Assistant entity ID from which this reading originated (e.g. 'sensor.temp_flower_room_1'). Used for traceability and re-mapping if HA entity names change. Null for MANUAL_ENTRY and CSV_IMPORT sources where no HA entity exists.",
+      "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+      "maxLength": 255,
+      "examples": [
+        "sensor.temp_flower_room_1",
+        "sensor.ec_zone_a1",
+        "sensor.co2_veg_room"
+      ]
+    },
+    "quality_flag": {
+      "type": "string",
+      "description": "Data quality classification assigned by the ingestion service after applying automated quality checks. OK = reading passed all range and continuity checks. SUSPECT_SPIKE = value is statistically anomalous (> 4σ from rolling mean) but may be valid. SUSPECT_FLATLINE = sensor has reported identical values for > 30 minutes. OUT_OF_RANGE = value exceeds configured sensor-type limits. INVALID = value failed structural or parsing validation. SENSOR_OFFLINE = sensor did not report within expected interval; value may be stale or synthesized.",
+      "enum": [
+        "OK",
+        "SUSPECT_SPIKE",
+        "SUSPECT_FLATLINE",
+        "OUT_OF_RANGE",
+        "INVALID",
+        "SENSOR_OFFLINE"
+      ],
+      "default": "OK"
+    }
+  },
+  "$defs": {
+    "SensorReadingBatch": {
+      "title": "SensorReadingBatch",
+      "description": "A batch envelope for submitting multiple sensor readings in a single API call. Used by the Home Assistant ingestion webhook and CSV import endpoint. All readings must share the same source field to simplify provenance tracking, but may span multiple sensors and sensor types.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readings"],
+      "properties": {
+        "readings": {
+          "type": "array",
+          "description": "Array of SensorReading objects to ingest. Processed atomically where possible; partial failure handling is source-dependent.",
+          "items": {
+            "$ref": "#"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        },
+        "submitted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp at which this batch was assembled by the sender. Used for latency monitoring and detecting clock skew between facility hardware and the API server."
+        },
+        "sender_id": {
+          "type": "string",
+          "description": "Optional identifier for the sending system (e.g. 'ha-prod-01', 'esphome-flower-r1'). Used for monitoring and debugging ingestion pipelines.",
+          "maxLength": 100
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "sensor_id": "temp_flower_room_1",
+      "batch_id": "550e8400-e29b-41d4-a716-446655440000",
+      "sensor_type": "TEMPERATURE",
+      "value": 24.3,
+      "unit": "°C",
+      "timestamp": "2025-09-14T08:30:00Z",
+      "source": "HA_PUSH",
+      "raw_entity_id": "sensor.temp_flower_room_1",
+      "quality_flag": "OK"
+    },
+    {
+      "sensor_id": "ec_zone_a1",
+      "batch_id": "550e8400-e29b-41d4-a716-446655440000",
+      "sensor_type": "EC",
+      "value": 2.18,
+      "unit": "mS/cm",
+      "timestamp": "2025-09-14T08:30:05Z",
+      "source": "HA_PUSH",
+      "raw_entity_id": "sensor.ec_zone_a1",
+      "quality_flag": "OK"
+    }
+  ]
+}

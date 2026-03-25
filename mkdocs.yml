@@ -1,0 +1,183 @@
+site_name: "Cultivation Intelligence"
+site_description: "Legacy Ag Indoor Facility — AI-Driven Cultivation Platform"
+site_author: "Legacy Ag Engineering"
+site_url: "https://legacy-ag-limited.github.io/cultivation-intelligence"
+repo_url: "https://github.com/legacy-ag-limited/cultivation-intelligence"
+repo_name: "legacy-ag-limited/cultivation-intelligence"
+edit_uri: "edit/main/docs/"
+copyright: "Copyright &copy; 2025 Legacy Ag Limited — MIT License"
+
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: green
+      accent: light-green
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: green
+      accent: light-green
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - toc.integrate
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+  font:
+    text: Roboto
+    code: Roboto Mono
+  icon:
+    logo: material/sprout
+    repo: fontawesome/brands/github
+  favicon: assets/favicon.png
+  language: en
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+nav:
+  - Home: index.md
+  - Executive Summary: executive-summary.md
+  - Product Brief: product-brief.md
+  - Theory of Operation: theory.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Component Diagram: architecture/components.md
+      - Data Flow: architecture/data-flow.md
+      - Deployment: architecture/deployment.md
+  - Data Model:
+      - Schema Overview: data-model/schema.md
+      - TimescaleDB Hypertables: data-model/hypertables.md
+      - Entity Reference: data-model/entities.md
+  - Feature Engineering:
+      - Feature Catalogue: features/catalogue.md
+      - VPD Calculation: features/vpd.md
+      - DLI Tracking: features/dli.md
+      - Substrate & Irrigation: features/substrate.md
+      - Derived Features: features/derived.md
+  - Model Strategy:
+      - Strategy Overview: models/strategy.md
+      - Baseline LightGBM: models/baseline-lgbm.md
+      - Training Pipeline: models/training.md
+      - Model Registry: models/registry.md
+  - Controls & Safety:
+      - Advisory Mode: controls/advisory-mode.md
+      - Safety Interlocks: controls/safety.md
+      - Control Actions: controls/actions.md
+  - Evaluation:
+      - Metrics Reference: evaluation/metrics.md
+      - Drift Detection: evaluation/drift.md
+      - Backtesting: evaluation/backtesting.md
+  - Operations Runbook:
+      - Deployment: ops/deployment.md
+      - Monitoring: ops/monitoring.md
+      - Incident Response: ops/incidents.md
+      - Database Maintenance: ops/database.md
+      - Backup & Recovery: ops/backup.md
+  - Roadmap: roadmap.md
+  - Risk Register: risk-register.md
+  - ADRs:
+      - ADR-001 TimescaleDB over InfluxDB: adrs/adr-001-timescaledb.md
+      - ADR-002 FastAPI over Django REST: adrs/adr-002-fastapi.md
+      - ADR-003 LightGBM Baseline First: adrs/adr-003-lightgbm-baseline.md
+      - ADR-004 Advisory-Only Control Mode: adrs/adr-004-advisory-mode.md
+  - Contributing: ../CONTRIBUTING.md
+
+# ---------------------------------------------------------------------------
+# Markdown Extensions
+# ---------------------------------------------------------------------------
+markdown_extensions:
+  - admonition
+  - abbr
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: docs
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.magiclink
+  - toc:
+      permalink: true
+      permalink_title: "Link to this section"
+      title: "On this page"
+
+# ---------------------------------------------------------------------------
+# Plugins
+# ---------------------------------------------------------------------------
+plugins:
+  - search:
+      lang: en
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+      fallback_to_build_date: true
+
+# ---------------------------------------------------------------------------
+# Extra
+# ---------------------------------------------------------------------------
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/legacy-ag-limited
+      name: Legacy Ag on GitHub
+  version:
+    provider: mike
+  analytics:
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/thumb-up-outline
+          name: This page was helpful
+          data: 1
+          note: Thanks for your feedback!
+        - icon: material/thumb-down-outline
+          name: This page could be improved
+          data: 0
+          note: >-
+            Thanks for your feedback! Help us improve by
+            <a href="https://github.com/legacy-ag-limited/cultivation-intelligence/issues/new" target="_blank">opening an issue</a>.
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js

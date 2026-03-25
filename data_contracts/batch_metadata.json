@@ -1,0 +1,230 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cultivation-intelligence.legacyag.co.nz/schemas/batch_metadata/v1",
+  "title": "BatchMetadata",
+  "description": "Metadata record describing a single cannabis cultivation batch from propagation through to harvest and quality assessment. A batch corresponds to a cohort of plants grown together in a single room under a unified environmental and nutritional programme. This schema is used for batch creation, update, and export endpoints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "batch_id",
+    "batch_name",
+    "strain",
+    "room_id",
+    "start_date",
+    "current_stage"
+  ],
+  "properties": {
+    "batch_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Universally unique identifier for this batch. Generated server-side on batch creation. Immutable after creation."
+    },
+    "batch_name": {
+      "type": "string",
+      "description": "Human-readable batch identifier used on labels, reports, and in operator communications. Must be uppercase alphanumeric with hyphens only (e.g. 'BATCH-2025-001'). Unique within the facility.",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Z0-9-]+$",
+      "examples": [
+        "BATCH-2025-001",
+        "BATCH-2025-WC-003",
+        "WC-FLOWER-2025-Q3-01"
+      ]
+    },
+    "strain": {
+      "type": "string",
+      "description": "Cannabis strain name as used by the genetics supplier. Stored verbatim; not validated against a controlled vocabulary to allow new strains without schema changes.",
+      "minLength": 1,
+      "maxLength": 100,
+      "examples": [
+        "Wedding Cake",
+        "Blue Dream",
+        "Northern Lights",
+        "Gorilla Glue #4"
+      ]
+    },
+    "room_id": {
+      "type": "string",
+      "description": "Identifier of the grow room where this batch is (or was) cultivated. Must match a room_id configured in the facility manifest. Slug format for compatibility with Home Assistant area IDs.",
+      "pattern": "^[a-z0-9-]+$",
+      "examples": [
+        "flower-room-1",
+        "veg-room-a",
+        "propagation-tent-1"
+      ]
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Calendar date (ISO 8601, local New Zealand time) on which propagation began for this batch. Used as the epoch for all day-in-cycle calculations."
+    },
+    "end_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Calendar date on which the batch was harvested and processing began. Null until the batch reaches the DRYING or COMPLETE stage. Must be >= start_date when set."
+    },
+    "current_stage": {
+      "type": "string",
+      "description": "Current grow stage of the batch. PROPAGATION = seed germination / cutting rooting. VEG = vegetative growth under 18+ h photoperiod. TRANSITION = photoperiod flip (18h → 12h) and first week of flower. FLOWER = active flowering under 12h photoperiod. FLUSH = final 7-10 days with plain water, no nutrients. HARVEST = physical harvest event. DRYING = drying room (7-14 days). CURING = sealed jar curing. COMPLETE = batch closed; all quality data recorded.",
+      "enum": [
+        "PROPAGATION",
+        "VEG",
+        "TRANSITION",
+        "FLOWER",
+        "FLUSH",
+        "HARVEST",
+        "DRYING",
+        "CURING",
+        "COMPLETE"
+      ]
+    },
+    "target_yield_g": {
+      "type": "number",
+      "description": "Target dry-weight yield for the entire batch in grams, set at batch creation based on strain data and room capacity. Used as the baseline for yield prediction accuracy metrics.",
+      "minimum": 0,
+      "maximum": 10000,
+      "examples": [4500, 3200, 6000]
+    },
+    "actual_yield_g": {
+      "type": ["number", "null"],
+      "description": "Actual dry-weight yield recorded after drying, in grams. Null until the batch reaches CURING or COMPLETE stage. Used as the ground-truth training label for yield prediction models.",
+      "minimum": 0,
+      "examples": [4320, 3100, null]
+    },
+    "quality_grade": {
+      "type": ["string", "null"],
+      "description": "Final quality grade assigned by the quality assurance team after laboratory testing and visual inspection. GRADE_A = premium (high terpene profile, >20% THC, no defects). GRADE_B = standard (moderate quality, some minor defects). GRADE_C = remediation candidate (low potency or significant defects). REJECTED = failed QA checks, cannot be sold. Null until quality assessment is complete.",
+      "enum": ["GRADE_A", "GRADE_B", "GRADE_C", "REJECTED", null]
+    },
+    "planned_veg_days": {
+      "type": "integer",
+      "description": "Target number of days in the vegetative stage. Used for grow schedule calculations and to determine when to initiate the photoperiod flip. May be adjusted during the grow by operators.",
+      "minimum": 7,
+      "maximum": 120,
+      "default": 28
+    },
+    "planned_flower_days": {
+      "type": "integer",
+      "description": "Target number of days in the flowering stage from photoperiod flip to harvest. Strain-dependent; typically 56-70 days for indica-dominant varieties, 63-84 for sativa-dominant.",
+      "minimum": 42,
+      "maximum": 120,
+      "default": 63
+    },
+    "genetics": {
+      "type": "object",
+      "description": "Genetic profile of the strain used in this batch. Used for model feature engineering and correlating environmental parameters with expected phenotype expression.",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Broad genetic classification. INDICA = short-stature, dense buds, higher CBD ratio. SATIVA = tall-stature, loose buds, higher THC, longer flower. HYBRID = crosses with characteristics of both.",
+          "enum": ["INDICA", "SATIVA", "HYBRID"]
+        },
+        "thc_target_pct": {
+          "type": "number",
+          "description": "Target THC percentage at harvest as specified by the genetics supplier. Used as a feature in quality prediction models.",
+          "minimum": 0,
+          "maximum": 35,
+          "examples": [24.5, 18.0, 28.0]
+        },
+        "cbd_target_pct": {
+          "type": "number",
+          "description": "Target CBD percentage at harvest as specified by the genetics supplier.",
+          "minimum": 0,
+          "maximum": 25,
+          "examples": [0.8, 12.0, 1.2]
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Physical environment and infrastructure configuration for the batch. Captured at batch creation; changes to infrastructure mid-batch should be logged in the notes field.",
+      "additionalProperties": false,
+      "properties": {
+        "room_dimensions_m3": {
+          "type": "number",
+          "description": "Volume of the grow room in cubic metres. Used to normalise CO2 consumption rates and ventilation calculations.",
+          "minimum": 1,
+          "maximum": 1000,
+          "examples": [28.0, 48.0, 12.5]
+        },
+        "num_plants": {
+          "type": "integer",
+          "description": "Total number of plants in this batch. Used for per-plant yield normalisation.",
+          "minimum": 1,
+          "maximum": 500,
+          "examples": [16, 32, 48]
+        },
+        "substrate": {
+          "type": "string",
+          "description": "Growing medium used for this batch. Affects VWC sensor calibration offsets and irrigation scheduling parameters. ROCKWOOL = inert mineral wool slabs/cubes. COCO_COIR = processed coconut husk fibre. SOIL = organic potting mix. HYDRO = recirculating deep water culture or NFT.",
+          "enum": ["ROCKWOOL", "COCO_COIR", "SOIL", "HYDRO"]
+        },
+        "lighting_type": {
+          "type": "string",
+          "description": "Primary lighting technology used in the grow room. Affects PPFD calibration, heat load calculations, and VPD target adjustments. LED = full-spectrum LED bars/panels. HPS = high-pressure sodium (single-ended or double-ended). CMH = ceramic metal halide. HYBRID = mixed LED + HPS or CMH arrays.",
+          "enum": ["LED", "HPS", "CMH", "HYBRID"]
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-text operator notes associated with this batch. Intended for significant observations, deviations from the grow plan, pest/disease incidents, or equipment failures. Stored verbatim; not used in model features.",
+      "maxLength": 2000
+    }
+  },
+  "examples": [
+    {
+      "batch_id": "550e8400-e29b-41d4-a716-446655440000",
+      "batch_name": "BATCH-2025-WC-001",
+      "strain": "Wedding Cake",
+      "room_id": "flower-room-1",
+      "start_date": "2025-07-01",
+      "end_date": null,
+      "current_stage": "FLOWER",
+      "target_yield_g": 4500,
+      "actual_yield_g": null,
+      "quality_grade": null,
+      "planned_veg_days": 21,
+      "planned_flower_days": 63,
+      "genetics": {
+        "type": "HYBRID",
+        "thc_target_pct": 24.5,
+        "cbd_target_pct": 0.8
+      },
+      "environment": {
+        "room_dimensions_m3": 28.0,
+        "num_plants": 16,
+        "substrate": "COCO_COIR",
+        "lighting_type": "LED"
+      },
+      "notes": "Wedding Cake (Triangle Kush × Animal Mints). Day 45/63 flower. Trichomes 30% cloudy, 60% clear. Flush scheduled for day 56. Minor tip burn on 2 plants in corner — adjusted airflow."
+    },
+    {
+      "batch_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "batch_name": "BATCH-2025-NL-002",
+      "strain": "Northern Lights",
+      "room_id": "flower-room-2",
+      "start_date": "2025-04-15",
+      "end_date": "2025-07-12",
+      "current_stage": "COMPLETE",
+      "target_yield_g": 5200,
+      "actual_yield_g": 5040,
+      "quality_grade": "GRADE_A",
+      "planned_veg_days": 28,
+      "planned_flower_days": 56,
+      "genetics": {
+        "type": "INDICA",
+        "thc_target_pct": 20.0,
+        "cbd_target_pct": 1.2
+      },
+      "environment": {
+        "room_dimensions_m3": 36.0,
+        "num_plants": 24,
+        "substrate": "ROCKWOOL",
+        "lighting_type": "LED"
+      },
+      "notes": "Clean run. 97% of target yield. Lab results: 21.3% THC, 1.1% CBD. No pest or disease issues. Dehumidifier unit 2 failed on day 38 — replaced within 4 hours, no measurable crop impact."
+    }
+  ]
+}

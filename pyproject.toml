@@ -1,0 +1,214 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# =============================================================================
+# Project Metadata
+# =============================================================================
+[project]
+name = "cultivation-intelligence"
+version = "0.1.0"
+description = "AI-driven cultivation intelligence platform for Legacy Ag Limited's indoor medicinal cannabis facility. Ingests time-series sensor data (VPD, EC, pH, VWC, irrigation, HVAC, lighting) from Home Assistant / ESPHome / Zigbee and delivers agronomic recommendations via a FastAPI service backed by TimescaleDB."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Legacy Ag Engineering", email = "engineering@legacyag.co.nz" }
+]
+keywords = ["cannabis", "cultivation", "agtech", "fastapi", "timeseries", "ml", "home-assistant"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Agriculture",
+]
+requires-python = ">=3.11"
+
+dependencies = [
+    # --- Web Framework ---
+    "fastapi>=0.111,<1.0",
+    "uvicorn[standard]>=0.29,<1.0",
+
+    # --- Data Validation & Settings ---
+    "pydantic>=2.7,<3.0",
+    "pydantic-settings>=2.3,<3.0",
+    "python-dotenv>=1.0,<2.0",
+
+    # --- Database ---
+    "sqlalchemy[asyncio]>=2.0,<3.0",
+    "asyncpg>=0.29,<1.0",
+    "alembic>=1.13,<2.0",
+
+    # --- Cache / Queue ---
+    "redis>=5.0,<6.0",
+
+    # --- HTTP Client (HA REST + webhook) ---
+    "httpx>=0.27,<1.0",
+
+    # --- Logging ---
+    "structlog>=24.1,<25.0",
+
+    # --- Data Science ---
+    "pandas>=2.2,<3.0",
+    "numpy>=1.26,<3.0",
+    "scikit-learn>=1.4,<2.0",
+    "lightgbm>=4.3,<5.0",
+    "joblib>=1.4,<2.0",
+
+    # --- CLI ---
+    "typer>=0.12,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "pytest-cov>=5.0,<6.0",
+    "httpx>=0.27,<1.0",           # AsyncClient for FastAPI test client
+    "factory-boy>=3.3,<4.0",      # Test fixtures / factories
+    "freezegun>=1.4,<2.0",        # Time mocking for time-series tests
+
+    # Linting / Formatting
+    "ruff>=0.4,<1.0",
+
+    # Type Checking
+    "mypy>=1.10,<2.0",
+    "types-redis>=4.6,<5.0",
+
+    # Pre-commit
+    "pre-commit>=3.7,<4.0",
+
+    # Docs
+    "mkdocs>=1.6,<2.0",
+    "mkdocs-material>=9.5,<10.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.2,<2.0",
+]
+
+[project.scripts]
+cultivation-ingest  = "cultivation_intelligence.ingest.cli:app"
+cultivation-train   = "cultivation_intelligence.training.cli:app"
+cultivation-serve   = "cultivation_intelligence.api.main:serve"
+
+[project.urls]
+Repository = "https://github.com/legacy-ag-limited/cultivation-intelligence"
+Documentation = "https://legacy-ag-limited.github.io/cultivation-intelligence"
+"Issue Tracker" = "https://github.com/legacy-ag-limited/cultivation-intelligence/issues"
+
+# =============================================================================
+# Hatch
+# =============================================================================
+[tool.hatch.build.targets.wheel]
+packages = ["src/cultivation_intelligence"]
+
+[tool.hatch.envs.default]
+dependencies = ["cultivation-intelligence[dev]"]
+
+# =============================================================================
+# Ruff — Linting & Formatting
+# =============================================================================
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "W",    # pycodestyle warnings
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+    "ANN",  # flake8-annotations (partial)
+]
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "ANN101", # missing type annotation for self
+    "ANN102", # missing type annotation for cls
+    "ANN201", # missing return type for public function (too noisy in tests)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cultivation_intelligence"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN", "S101"]
+"scripts/**/*.py" = ["ANN"]
+"alembic/**/*.py" = ["ANN", "N999"]
+
+# =============================================================================
+# Mypy — Static Type Checking
+# =============================================================================
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+namespace_packages = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = [
+    "lightgbm.*",
+    "alembic.*",
+    "sqlalchemy.*",
+]
+ignore_missing_imports = true
+
+# =============================================================================
+# Pytest
+# =============================================================================
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-ra",
+]
+markers = [
+    "integration: marks tests as requiring live services (db, redis, ha)",
+    "slow: marks tests that take >5 seconds",
+    "unit: marks pure unit tests with no I/O",
+]
+
+# =============================================================================
+# Coverage
+# =============================================================================
+[tool.coverage.run]
+source = ["src/cultivation_intelligence"]
+omit = [
+    "*/migrations/*",
+    "*/alembic/*",
+    "tests/*",
+    "scripts/*",
+]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
